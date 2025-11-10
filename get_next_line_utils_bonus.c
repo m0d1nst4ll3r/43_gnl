@@ -1,16 +1,16 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   get_next_line_utils.c                              :+:      :+:    :+:   */
+/*   get_next_line_utils_bonus.c                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/08 17:29:16 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/10/11 12:51:17 by rapohlen         ###   ########.fr       */
+/*   Updated: 2025/11/10 17:57:28 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "get_next_line.h"
+#include "get_next_line_bonus.h"
 
 // + 1 malloc is handled directly in realloc for simplicity
 char	*ft_realloc(char *old, size_t old_size, size_t to_add)
