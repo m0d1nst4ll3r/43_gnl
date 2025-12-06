@@ -5,116 +5,112 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/10/08 17:28:01 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/11/10 17:54:00 by rapohlen         ###   ########.fr       */
+/*   Created: 2025/12/06 18:44:35 by rapohlen          #+#    #+#             */
+/*   Updated: 2025/12/06 21:42:21 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
 
-// This fills the line we are building with the buffer
-//	- to_copy	tells us how many bytes to copy
-//	- line		the line we are building
-//	- line_len	current size of that line (before copy, for realloc)
-//	- d->buf	buffer we sent to read and are copying from
-// We fill the line through successive reallocs
-// Every realloc widens the line by BUFFER_SIZE bytes, except at last call
-// After every fill
-//	- update d->index (where we are in the buffer) for subsequent gnl calls
-//	- update line_len
-// The if statement during copy is there to handle null bytes for binary files
-//	(null bytes are replaced by 1 so binary files can output like cat would)
-static int	gnl_fill2(char **line, size_t *line_len, t_gnl *d, int to_copy)
+static t_gnl_buf	*fill_line(t_gnl_buf *cur, char *line, int end_len)
 {
-	int	i;
-
-	*line = ft_realloc(*line, *line_len, to_copy);
-	if (!*line)
-		return (1);
-	i = 0;
-	while (i < to_copy)
-	{
-		(*line)[*line_len + i] = d->buf[d->index + i];
-		if (!d->buf[d->index + i])
-			(*line)[*line_len + i] = 1;
-		i++;
-	}
-	(*line)[*line_len + i] = 0;
-	*line_len += to_copy;
-	d->index += to_copy;
-	return (0);
-}
-
-// Called after every read (and once right after function call before 1st read)
-// This checks for \n or eof
-//	- if \n is found, we add up to and including the \n to the line and ret 1
-//	- if no \n is found but len < BSIZ (reached EOF), fill line and ret 1
-//	- if no \n is found and len == BSIZ, fill line and ret 0 (continue reading)
-// If by chance we read exactly BUFFER_SIZE bytes but it would be our last read,
-//	then we have no way of knowing it's our last read and we need to read again
-static int	gnl_fill(char **line, size_t *line_len, t_gnl *d)
-{
-	int		i;
+	t_gnl_buf	*last;
+	int			i;
+	int			j;
 
 	i = 0;
-	while (d->index + i < d->len && d->buf[d->index + i] != '\n')
-		i++;
-	if (d->index + i < d->len && d->buf[d->index + i] == '\n')
+	while (cur->next)
 	{
-		gnl_fill2(line, line_len, d, i + 1);
-		return (1);
+		j = cur->index;
+		while (j < cur->len)
+			line[i++] = cur->buf[j++];
+		last = cur;
+		cur = cur->next;
+		free(last);
 	}
-	else if (i > 0)
-		if (gnl_fill2(line, line_len, d, i) || d->len < BUFFER_SIZE)
-			return (1);
-	return (0);
+	j = cur->index;
+	while (j < cur->index + end_len)
+		line[i++] = cur->buf[j++];
+	line[i] = 0;
+	return (cur);
 }
 
-// Main gnl function that first checks for leftovers, then calls read
-//	successively until gnl_fill returns 1 (line is complete)
-//	or read fails (or is done reading)
-// gnl_fill does the line filling and checking for \n or EOF
-// At return, line might be NULL if nothing was copied
-static char	*gnl_read(t_gnl *d, int fd)
+static char	*get_line(t_gnl_buf **buf, int end_len)
 {
-	char	*line;
-	size_t	line_len;
+	t_gnl_buf	*cur;
+	char		*line;
 
-	line = NULL;
-	line_len = 0;
-	while (1)
+	line = malloc(get_len(*buf, end_len) + 1);
+	if (!line)
+		return (gnl_clear_buf(*buf));
+	cur = fill_line(*buf, line, end_len);
+	if (cur->index + end_len == cur->len)
 	{
-		if (gnl_fill(&line, &line_len, d))
-			break ;
-		d->len = read(fd, d->buf, BUFFER_SIZE);
-		d->index = 0;
-		if (d->len == -1)
-		{
-			free(line);
-			return (NULL);
-		}
-		if (d->len == 0)
-			break ;
+		free(cur);
+		cur = NULL;
 	}
+	else
+		cur->index += end_len;
+	*buf = cur;
 	return (line);
 }
 
-// Static variable is a chained list with one node per fd
-// If fd is unknown, create node and init index & len values
-// Remove node when done reading completely or upon read/malloc error
-// If program is ended before end of read, there will be still reachables
+static int	reached_end(t_gnl_buf *buf, int *end_len)
+{
+	int	i;
+
+	i = 0;
+	while (buf->index + i < buf->len && buf->buf[buf->index + i] != '\n')
+		i++;
+	if (buf->len < BUFFER_SIZE || buf->index + i < buf->len)
+	{
+		*end_len = i;
+		if (buf->index + i < buf->len && buf->buf[buf->index + i] == '\n')
+			(*end_len)++;
+		return (1);
+	}
+	return (0);
+}
+
+static char	*gnl_read_loop(t_gnl *data)
+{
+	t_gnl_buf	*cur;
+	t_gnl_buf	*last;
+	int			end_len;
+
+	cur = data->buf;
+	while (1)
+	{
+		if (cur && reached_end(cur, &end_len))
+			return (get_line(&data->buf, end_len));
+		last = cur;
+		cur = malloc(sizeof(*cur));
+		if (!cur)
+			return (gnl_clear_buf(data->buf));
+		if (!data->buf)
+			data->buf = cur;
+		else
+			last->next = cur;
+		cur->next = NULL;
+		cur->len = read(data->fd, cur->buf, BUFFER_SIZE);
+		if ((!cur->len && cur == data->buf) || cur->len == -1)
+			return (gnl_clear_buf(data->buf));
+		cur->index = 0;
+	}
+}
+
 char	*get_next_line(int fd)
 {
-	static t_gnl	*lst = NULL;
-	t_gnl			*data;
+	static t_gnl	*lst;
+	t_gnl			*current;
 	char			*line;
 
-	data = lst_find_fd(lst, fd);
-	if (!data)
-		data = lst_add_fd(&lst, fd);
-	if (!data)
+	current = lst_find_fd(lst, fd);
+	if (!current)
+		current = lst_add_fd(&lst, fd);
+	if (!current)
 		return (NULL);
-	line = gnl_read(data, fd);
+	line = gnl_read_loop(current);
 	if (!line)
 		lst_remove_fd(&lst, fd);
 	return (line);

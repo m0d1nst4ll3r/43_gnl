@@ -5,46 +5,48 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/10/08 17:29:16 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/10/11 12:51:17 by rapohlen         ###   ########.fr       */
+/*   Created: 2025/12/06 18:48:42 by rapohlen          #+#    #+#             */
+/*   Updated: 2025/12/06 21:26:41 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
 
-// + 1 malloc is handled directly in realloc for simplicity
-char	*ft_realloc(char *old, size_t old_size, size_t to_add)
+int	get_len(t_gnl_buf *buf, int end_len)
 {
-	char	*new;
-	size_t	i;
+	int	len;
 
-	new = malloc(old_size + to_add + 1);
-	if (!new)
+	len = end_len;
+	while (buf->next)
 	{
-		free(old);
-		return (new);
+		len += buf->len - buf->index;
+		buf = buf->next;
 	}
-	i = 0;
-	while (i < old_size)
-	{
-		new[i] = old[i];
-		i++;
-	}
-	free(old);
-	return (new);
+	return (len);
 }
 
-// always init index and len values since we will attempt a copy before 1st read
+void	*gnl_clear_buf(t_gnl_buf *buf)
+{
+	t_gnl_buf	*last;
+
+	while (buf)
+	{
+		last = buf;
+		buf = buf->next;
+		free(last);
+	}
+	return (NULL);
+}
+
 t_gnl	*lst_add_fd(t_gnl **lst, int fd)
 {
 	t_gnl	*new;
 
 	new = malloc(sizeof(*new));
 	if (!new)
-		return (new);
+		return (NULL);
 	new->fd = fd;
-	new->index = 0;
-	new->len = 0;
+	new->buf = NULL;
 	new->next = NULL;
 	if (!*lst)
 		*lst = new;
@@ -54,6 +56,17 @@ t_gnl	*lst_add_fd(t_gnl **lst, int fd)
 		*lst = new;
 	}
 	return (new);
+}
+
+t_gnl	*lst_find_fd(t_gnl *lst, int fd)
+{
+	while (lst)
+	{
+		if (lst->fd == fd)
+			return (lst);
+		lst = lst->next;
+	}
+	return (NULL);
 }
 
 void	lst_remove_fd(t_gnl **lst, int fd)
@@ -75,15 +88,4 @@ void	lst_remove_fd(t_gnl **lst, int fd)
 			last->next = to_remove->next;
 		free(to_remove);
 	}
-}
-
-t_gnl	*lst_find_fd(t_gnl *lst, int fd)
-{
-	while (lst)
-	{
-		if (lst->fd == fd)
-			return (lst);
-		lst = lst->next;
-	}
-	return (NULL);
 }
