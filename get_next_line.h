@@ -6,7 +6,7 @@
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/06 18:41:35 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/12/06 21:59:28 by rapohlen         ###   ########.fr       */
+/*   Updated: 2025/12/15 19:54:54 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -87,7 +87,7 @@ typedef struct s_gnl
 }	t_gnl;
 
 // lst utils
-void	*gnl_clear_buf(t_gnl_buf *buf);
+int		gnl_clear_buf(t_gnl_buf *buf, char **line);
 t_gnl	*lst_add_fd(t_gnl **lst, int fd);
 t_gnl	*lst_find_fd(t_gnl *lst, int fd);
 void	lst_remove_fd(t_gnl **lst, int fd);

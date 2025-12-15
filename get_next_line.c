@@ -6,11 +6,12 @@
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/06 18:44:35 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/12/06 21:42:21 by rapohlen         ###   ########.fr       */
+/*   Updated: 2025/12/15 19:55:46 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
+#include <stdio.h>
 
 static t_gnl_buf	*fill_line(t_gnl_buf *cur, char *line, int end_len)
 {
@@ -35,24 +36,23 @@ static t_gnl_buf	*fill_line(t_gnl_buf *cur, char *line, int end_len)
 	return (cur);
 }
 
-static char	*get_line(t_gnl_buf **buf, int end_len)
+static int	get_line(t_gnl_buf **buf, int end_len, char **line)
 {
 	t_gnl_buf	*cur;
-	char		*line;
 
-	line = malloc(get_len(*buf, end_len) + 1);
-	if (!line)
-		return (gnl_clear_buf(*buf));
-	cur = fill_line(*buf, line, end_len);
+	*line = malloc(get_len(*buf, end_len) + 1);
+	if (!*line)
+		return (gnl_clear_buf(*buf, line));
+	cur = fill_line(*buf, *line, end_len);
 	if (cur->index + end_len == cur->len)
 	{
 		free(cur);
-		cur = NULL;
+		*buf = NULL;
+		return (1);
 	}
-	else
-		cur->index += end_len;
+	cur->index += end_len;
 	*buf = cur;
-	return (line);
+	return (0);
 }
 
 static int	reached_end(t_gnl_buf *buf, int *end_len)
@@ -72,7 +72,7 @@ static int	reached_end(t_gnl_buf *buf, int *end_len)
 	return (0);
 }
 
-static char	*gnl_read_loop(t_gnl *data)
+static int	gnl_read_loop(t_gnl *data, char **line)
 {
 	t_gnl_buf	*cur;
 	t_gnl_buf	*last;
@@ -82,11 +82,11 @@ static char	*gnl_read_loop(t_gnl *data)
 	while (1)
 	{
 		if (cur && reached_end(cur, &end_len))
-			return (get_line(&data->buf, end_len));
+			return (get_line(&data->buf, end_len, line));
 		last = cur;
 		cur = malloc(sizeof(*cur));
 		if (!cur)
-			return (gnl_clear_buf(data->buf));
+			return (gnl_clear_buf(data->buf, line));
 		if (!data->buf)
 			data->buf = cur;
 		else
@@ -94,7 +94,7 @@ static char	*gnl_read_loop(t_gnl *data)
 		cur->next = NULL;
 		cur->len = read(data->fd, cur->buf, BUFFER_SIZE);
 		if ((!cur->len && cur == data->buf) || cur->len == -1)
-			return (gnl_clear_buf(data->buf));
+			return (gnl_clear_buf(data->buf, line));
 		cur->index = 0;
 	}
 }
@@ -110,8 +110,7 @@ char	*get_next_line(int fd)
 		current = lst_add_fd(&lst, fd);
 	if (!current)
 		return (NULL);
-	line = gnl_read_loop(current);
-	if (!line)
+	if (gnl_read_loop(current, &line))
 		lst_remove_fd(&lst, fd);
 	return (line);
 }

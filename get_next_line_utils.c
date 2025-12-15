@@ -6,7 +6,7 @@
 /*   By: rapohlen <rapohlen@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/06 18:48:42 by rapohlen          #+#    #+#             */
-/*   Updated: 2025/12/06 21:26:41 by rapohlen         ###   ########.fr       */
+/*   Updated: 2025/12/15 19:49:06 by rapohlen         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,7 +25,7 @@ int	get_len(t_gnl_buf *buf, int end_len)
 	return (len);
 }
 
-void	*gnl_clear_buf(t_gnl_buf *buf)
+int	gnl_clear_buf(t_gnl_buf *buf, char **line)
 {
 	t_gnl_buf	*last;
 
@@ -35,7 +35,8 @@ void	*gnl_clear_buf(t_gnl_buf *buf)
 		buf = buf->next;
 		free(last);
 	}
-	return (NULL);
+	*line = NULL;
+	return (1);
 }
 
 t_gnl	*lst_add_fd(t_gnl **lst, int fd)
